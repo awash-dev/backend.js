@@ -83,6 +83,15 @@
       "category": "Computers",
       "stock": 15,
       "image": "https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/macbook-air-m1-select-2021?wid=940&hei=1112&fmt=jpeg&qlt=95&op_usm=0.5,0.5&resMode=sharp2&op_usm=0.5,0.5&fit=constrain"
+    },
+    {
+      "id": 11,
+      "name": "Apple MacBook Air",
+      "description": "Lightweight laptop with M1 chip.",
+      "price": 999,
+      "category": "Computers",
+      "stock": 15,
+      "image": "https://store.storeimages.cdn-apple.com/4668/as-images.apple.com/is/macbook-air-m1-select-2021?wid=940&hei=1112&fmt=jpeg&qlt=95&op_usm=0.5,0.5&resMode=sharp2&op_usm=0.5,0.5&fit=constrain"
     }
   ]
 }
