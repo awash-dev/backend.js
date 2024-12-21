@@ -4,6 +4,8 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
@@ -41,7 +43,8 @@ app.post("/api/users/register", async (req, res) => {
       return res.status(400).json({ message: "Username or email already exists" });
     }
 
-    const newUser = new User({ username, email, password }); // 
+    const hashedPassword = await bcrypt.hash(password, 10); // Hash the password
+    const newUser = new User({ username, email, password: hashedPassword });
     await newUser.save();
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
@@ -49,8 +52,52 @@ app.post("/api/users/register", async (req, res) => {
     res.status(500).json({ message: "User registration failed" });
   }
 });
- 
-// Read All Users Route || admin dashboard Read in chrome
+
+// Login route
+app.post("/api/users/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password); // Compare hashed password
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' }); // Generate token
+    res.status(200).json({ token, message: "Login successful" });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
+
+// Profile route
+app.get('/api/users/profile', async (req, res) => {
+    const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Use the same secret as during login
+        const user = await User.findById(decoded.id).select('-password'); // Exclude password from results
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        
+        res.json({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            // Add profile picture field if necessary
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Read All Users Route
 app.get("/api/users", async (req, res) => {
   try {
     const users = await User.find();
@@ -60,7 +107,7 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
-// Read Single User Route || may be if you want edit indivial in admin dashboard 
+// Read Single User Route
 app.get("/api/users/:_id", async (req, res) => {
   try {
     const user = await User.findById(req.params._id);
@@ -70,7 +117,8 @@ app.get("/api/users/:_id", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-// Update User Route || you can edit user info in admin dashboard 
+
+// Update User Route
 app.put("/api/users/:_id", async (req, res) => {
   const { username, email, password } = req.body;
   const { _id } = req.params;
@@ -82,7 +130,7 @@ app.put("/api/users/:_id", async (req, res) => {
     // Update user fields
     if (username) user.username = username;
     if (email) user.email = email;
-    if (password) user.password = password; // this password is not hashing
+    if (password) user.password = await bcrypt.hash(password, 10); // Hash new password
 
     await user.save();
     res.json(user);
@@ -106,30 +154,6 @@ app.delete("/api/users/:id", async (req, res) => {
     res.status(500).json({ message: "Failed to delete user" });
   }
 });
-
-// Login route
-app.post("/api/users/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    // Directly compare passwords (not secure)
-    if (user.password !== password) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    res.status(200).json({ message: "Login successful" });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Login failed" });
-  }
-});
-
-// Crud product opration
 
 // Define Product Schema
 const productSchema = new mongoose.Schema({
@@ -184,8 +208,9 @@ app.get("/api/products", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 // Search products endpoint
-app.get('/api/products', async (req, res) => {
+app.get('/api/products/search', async (req, res) => {
   const { query } = req.query;
   try {
     const products = await Product.find({
@@ -196,7 +221,6 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ message: 'Error fetching products' });
   }
 });
-
 
 // Read Single Product Route
 app.get("/api/products/:_id", async (req, res) => {
@@ -256,8 +280,6 @@ app.delete("/api/products/:id", async (req, res) => {
   }
 });
 
-
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err);
@@ -266,5 +288,5 @@ app.use((err, req, res, next) => {
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
